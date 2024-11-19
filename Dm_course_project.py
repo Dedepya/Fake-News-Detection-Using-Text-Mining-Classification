@@ -25,12 +25,13 @@ from sklearn.linear_model import SGDClassifier
 from collections import Counter
 from sklearn.metrics import precision_recall_fscore_support
 import warnings
+import string
 warnings.filterwarnings("ignore")
 
 """## 2. Load and Explore the Dataset"""
 
 # Load dataset
-df = pd.read_csv('/content/news.csv')
+df = pd.read_csv('content/news.csv')
 
 # Display basic information
 print("Dataset Shape: ", df.shape)
@@ -51,6 +52,101 @@ plt.ylabel('')
 plt.show()
 
 """## 3. Word Frequency Analysis"""
+
+# Define your list of unwanted words
+unwanted_words = [
+    "the", "to", "of", "a", "and", "in", "that", "is", "for", "on", "he", "as", "with", "said",
+    "it", "his", "was", "have", "but", "at", "has", "be", "are", "not", "by", "this", "from", "who", 
+    "an", "they", "about", "i", "will", "would", "or", "we", "their", "her", "she", "were",
+    "been", "had", "it's", "if", "you", "us", "what", "its", "than", "when", "also", "which",
+    "so", "there", "him", "your"
+]
+
+def preprocess_text_manual(text, unwanted_words):
+    """
+    Preprocesses the input text by:
+    - Converting to lowercase
+    - Removing punctuation
+    - Splitting into words based on whitespace
+    - Removing manually specified unwanted words
+    - Keeping only alphabetic words
+    """
+    if not isinstance(text, str):
+        # Handle cases where the text might not be a string
+        return []
+    
+    # Convert to lowercase
+    text = text.lower()
+    
+    # Remove punctuation
+    translator = str.maketrans('', '', string.punctuation)
+    text = text.translate(translator)
+    
+    # Split text into words based on whitespace
+    words = text.split()
+    
+    # Remove unwanted words and non-alphabetic words
+    meaningful_words = [
+        word for word in words 
+        if word not in unwanted_words and word.isalpha()
+    ]
+    
+    return meaningful_words
+
+# Apply the preprocessing function to the 'text' column
+df['processed_text'] = df['text'].apply(lambda x: preprocess_text_manual(x, unwanted_words))
+
+# Function to get the most common words for a given label
+def get_most_common_words(df, label, top_n=20):
+    """
+    Returns the most common words for a given label.
+    
+    Parameters:
+    - df: pandas DataFrame containing the data
+    - label: The label to filter by ('REAL' or 'FAKE')
+    - top_n: Number of top common words to return
+    
+    Returns:
+    - List of tuples containing word and its count
+    """
+    # Filter the DataFrame by label
+    filtered_text = df[df['label'] == label]['processed_text']
+    
+    # Flatten the list of lists into a single list of words
+    all_words = list(itertools.chain.from_iterable(filtered_text))
+    
+    # Count word frequencies
+    word_counts = Counter(all_words).most_common(top_n)
+    
+    return word_counts
+
+# Get the most common words for REAL and FAKE news
+count_real = get_most_common_words(df, 'REAL', top_n=20)
+count_fake = get_most_common_words(df, 'FAKE', top_n=20)
+
+# Convert word counts to DataFrame
+df_real = pd.DataFrame(count_real, columns=["words in REAL", "count"])
+df_fake = pd.DataFrame(count_fake, columns=["words in FAKE", "count"])
+
+# Plot word frequencies for REAL news
+plt.figure(figsize=(12, 6))
+plt.bar(df_real["words in REAL"], df_real["count"], color='green')
+plt.xticks(rotation=45, ha='right')
+plt.title('Most Frequent Meaningful Words in REAL News')
+plt.xlabel('Words')
+plt.ylabel('Count')
+plt.tight_layout()
+plt.show()
+
+# Plot word frequencies for FAKE news
+plt.figure(figsize=(12, 6))
+plt.bar(df_fake["words in FAKE"], df_fake["count"], color='orange')
+plt.xticks(rotation=45, ha='right')
+plt.title('Most Frequent Meaningful Words in FAKE News')
+plt.xlabel('Words')
+plt.ylabel('Count')
+plt.tight_layout()
+plt.show()
 
 # Frequent words in REAL and FAKE news
 count_real = Counter(" ".join(df[df['label'] == 'REAL']["text"]).split()).most_common(20)
